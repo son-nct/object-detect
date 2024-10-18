@@ -17,20 +17,18 @@ VisionRunningMode = mp.tasks.vision.RunningMode
 def dms_to_dd(degrees, minutes, seconds):
     return degrees + (minutes / 60.0) + (seconds / 3600.0)
 
-# Runway coordinates (latitude, longitude)
 runway_corners_geo = [
-    (dms_to_dd(10, 48, 54), dms_to_dd(106, 38, 13)),
-    (dms_to_dd(10, 48, 53), dms_to_dd(106, 38, 13)),
-    (dms_to_dd(10, 49, 28), dms_to_dd(106, 39, 47)),
-    (dms_to_dd(10, 49, 30), dms_to_dd(106, 39, 47))
+    (dms_to_dd(10, 48, 50), dms_to_dd(106, 38, 35)),
+    (dms_to_dd(10, 48, 49), dms_to_dd(106, 38, 36)),
+    (dms_to_dd(10, 49, 24), dms_to_dd(106, 40, 10)),
+    (dms_to_dd(10, 49, 26), dms_to_dd(106, 40, 10))
 ]
 
-# Image coordinates (latitude, longitude)
 image_corners_geo = [
-    (dms_to_dd(10, 49, 13), dms_to_dd(106, 39, 3)),
-    (dms_to_dd(10, 49, 12), dms_to_dd(106, 39, 3)),
-    (dms_to_dd(10, 49, 14), dms_to_dd(106, 39, 6)),
-    (dms_to_dd(10, 49, 13), dms_to_dd(106, 39, 7))
+    (dms_to_dd(10, 49, 3), dms_to_dd(106, 39, 11)),
+    (dms_to_dd(10, 49, 3), dms_to_dd(106, 39, 11)),
+    (dms_to_dd(10, 49, 2), dms_to_dd(106, 39, 11)),
+    (dms_to_dd(10, 49, 4), dms_to_dd(106, 39, 17))
 ]
 
 def geo_to_pixel(geo_point, geo_corners, image_shape):
@@ -84,7 +82,7 @@ options = ObjectDetectorOptions(
 
 with ObjectDetector.create_from_options(options) as detector:
     # Load the image using OpenCV
-    image_path = 'new3.jpg'
+    image_path = 'ex5.jpg'
     cv_image = cv2.imread(image_path)
     
     # Convert the OpenCV image (BGR) to the MediaPipe image (RGB)
@@ -93,8 +91,14 @@ with ObjectDetector.create_from_options(options) as detector:
     # Perform object detection on the image
     result = detector.detect(mp_image)
 
+    # Print the number of detected objects
+    print(f"Number of detected objects: {len(result.detections)}")
+
+    # Sort detections from left to right
+    sorted_detections = sorted(result.detections, key=lambda d: d.bounding_box.origin_x)
+
     # Draw circles for each detected object and print coordinates on the image
-    for detection in result.detections:
+    for i, detection in enumerate(sorted_detections, 1):
         bbox = detection.bounding_box
 
         # Calculate center and radius of the circle
@@ -104,9 +108,6 @@ with ObjectDetector.create_from_options(options) as detector:
 
         # Convert pixel coordinates to geographical coordinates within the image
         geo_lat, geo_lon = pixel_to_geo((center_x, center_y), image_corners_geo, cv_image.shape)
-
-        # Convert image geographical coordinates to runway geographical coordinates
-        runway_lat, runway_lon = image_geo_to_runway_geo((geo_lat, geo_lon), image_corners_geo, runway_corners_geo)
 
         # Draw a circle covering the detected object
         cv2.circle(cv_image, (center_x, center_y), radius, (0, 255, 0), 2)
@@ -118,16 +119,16 @@ with ObjectDetector.create_from_options(options) as detector:
             s = (dd - d - m/60) * 3600
             return f"{d}°{m}'{s:.2f}\""
 
-        lat_dms = dd_to_dms(runway_lat)
-        lon_dms = dd_to_dms(runway_lon)
+        lat_dms = dd_to_dms(geo_lat)
+        lon_dms = dd_to_dms(geo_lon)
 
         # Write the coordinates on the image
-        coord_text = f"Lat: {lat_dms}N, Lon: {lon_dms}E"
+        coord_text = f"Object {i}: {lat_dms}N, {lon_dms}E"
         cv2.putText(cv_image, coord_text, (center_x - radius, center_y - radius - 10),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 2)
 
         # Print the coordinates
-        print(f"Object Location on Runway: Latitude {lat_dms}N, Longitude {lon_dms}E")
+        print(f"Object {i} Location: Latitude {lat_dms}N, Longitude {lon_dms}E")
 
     # Save and display the output image with circles for detected objects
     output_path = 'output_with_object_location.png'
